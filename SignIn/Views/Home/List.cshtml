@@ -1,0 +1,182 @@
+﻿@model int
+
+@{
+    ViewBag.Title = "List";
+}
+<script src="~/Scripts/jquery.signalR-2.1.1.min.js"></script>
+<script src="/signalr/hubs"></script>
+<script src="~/Scripts/utilities.js"></script>
+<script type="text/javascript">
+
+
+    $(function () {
+
+        $.ajaxSettings.traditional = true;
+        $.ajaxSetup({ cache: false });
+
+        var empId = @Model
+
+        PopulateList(empId);
+
+        // Create a function that the hub can call back
+        $.connection.realtimeHub.client.signingCreated = function (emp) {
+            UpdateEmployee(emp);
+        };
+
+        $.connection.realtimeHub.client.employeeAdded = function (emp) {
+            AddEmployeeToList(emp);
+        };
+
+        $.connection.realtimeHub.client.employeeUpdated = function (emp) {
+
+            if ($("#employee_div_" + emp.EmployeeID).length > 0) {
+                if (emp.IsActive == false) {
+                    $("#employee_div_" + emp.EmployeeID).remove();
+                } else {
+                    UpdateEmployee(emp);
+                }
+            } else {
+                if (emp.IsActive == true) {
+                    AddEmployeeToList(emp);
+                   } 
+            }            
+        };
+
+        $.connection.hub.start().done(function() {
+            //alert('hub connected');
+        });
+
+    });
+
+    function UpdateEmployee(employee) {
+
+        var lastSignDate = ConvertDotNetDateToString(employee.LastSigning);
+                
+        var buttonText;
+        var currentStatus;
+        var linkText = 'javascript:CreateSigning(' + employee.EmployeeID + ');';
+
+        if (employee.LastSigningWasIn == false) {
+            buttonText = 'Sign In';
+            currentStatus = 'Signed Out On';
+        } else {
+            buttonText = 'Sign Out';
+            currentStatus = 'Signed In On';
+        }
+
+        var divContent = '<p><h2>' + employee.FullName + '</h2>' + currentStatus +
+
+        '<br></br>' + lastSignDate +
+
+        '<br></br><a href="' + linkText + '" class="btn btn-success btn-medium">' + buttonText + ' »</a></p>';
+        
+        $("#employee_div_" + employee.EmployeeID).html(divContent);
+    }
+
+    function CreateSigning(employeeID) {
+
+        var actionUrl = "@Url.Action("CreateSigning", "Home")";
+
+        actionUrl = actionUrl + '/' + employeeID;
+
+        $.ajax({
+            cache: false,
+            url: actionUrl,
+            dataType: "json",
+            success: function (data) {                
+                UpdateEmployee(data);                
+                $.connection.realtimeHub.server.signingCreated(data);
+            }
+        });
+    }
+
+    function AddEmployeeToList(emp)
+    {
+        var lastSigningWasIn = emp.LastSigningWasIn;
+        var lastSigningWasToday = emp.LastSigningWasToday;
+        var lastSignDate = '';
+        var buttonText;
+        var employeeID = emp.EmployeeID;
+
+        var linkText = 'javascript:CreateSigning(' + employeeID + ');';
+        var currentStatus;
+
+        if (lastSigningWasIn == null || lastSigningWasIn == false) {
+            lastSigningWasIn = false;
+            buttonText = 'Sign In';
+        } else {
+            if (lastSigningWasToday == true) {
+                buttonText = 'Sign Out';
+            } else {
+                buttonText = 'Sign In';
+            }
+        }
+
+        if (emp.LastSigning != null) {
+
+            var lastSignDate = ConvertDotNetDateToString(emp.LastSigning);
+
+            if (lastSigningWasIn == true) {
+                currentStatus = 'Signed In On';
+            } else {
+                currentStatus = 'Signed Out On';
+            }
+        } else {
+            currentStatus = "Never Signed In";
+        }
+
+        var divToAppend = '<div id="employee_div_' + employeeID + '" class="col-sm-6 col-md-4 col-lg-3">' +
+
+                        '<p><h2>' + emp.FullName + '</h2>' + currentStatus +
+
+                        '<br></br>' + lastSignDate +
+
+                        '<br></br><a href="' + linkText + '" class="btn btn-success btn-medium">' + buttonText + ' »</a></p>' +
+
+                        '</div>';
+
+        $('#employeesDiv').append(divToAppend);
+
+    }
+    function PopulateList(empId) {
+
+        $('#employeesDiv').empty();
+
+        var actionUrl = "@Url.Action("GetActiveEmployees", "Home")";
+
+        actionUrl = actionUrl + '/' + empId;
+
+        $.ajax({
+            cache: false,
+            url: actionUrl,
+            dataType: "json",
+            success: function (response) {
+                var items = response;
+
+                $.each(items, function (index, item) {
+                    AddEmployeeToList(item);
+                });
+            }
+        });
+
+
+    }
+
+</script>
+
+<div class="container">
+    <div class="jumbotron">
+        <h1>Acme Ltd Employee Sign In</h1>
+        <p>Please click on the appropriate button below to sign in or out</p>
+    </div>
+    <div id="employeesDiv" class="row">
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-sm-12">
+            <footer>
+                <p>© Copyright 2014 Acme Ltd</p>
+            </footer>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,115 @@
+﻿@{
+    ViewBag.Title = "WhoIsIn";
+}
+
+<script src="~/Scripts/jquery.signalR-2.1.1.min.js"></script>
+<script src="/signalr/hubs"></script>
+<script src="~/Scripts/utilities.js"></script>
+<script type="text/javascript">
+
+    $(function () {
+
+        jQuery.ajaxSettings.traditional = true;
+
+        PopulateList();
+
+        // Create a function that the hub can call back
+        $.connection.realtimeHub.client.signingCreated = function (emp) {
+            UpdateList(emp);
+        };
+
+        $.connection.realtimeHub.client.employeeUpdated = function (emp) {
+            UpdateList(emp);
+        };
+
+        $.connection.hub.start().done(function () {
+            //alert('hub connected');
+        });
+
+    });
+
+    function UpdateList(emp) {
+        if (emp.LastSigningWasIn == false || emp.IsActive == false) {
+            $('#employeesSignedIn tr#emp_row_' + emp.EmployeeID).remove();
+        } else {
+            AddEntry(emp);
+        }
+    }
+
+    function AddEntry(emp)
+    {
+        var lastSignDate = ConvertDotNetDateToString(emp.LastSigning);
+
+        var toAppend = '<tr id="emp_row_' + emp.EmployeeID + '">' +
+
+        '<td>' + emp.FullName + '</td>' +
+
+        '<td>' + lastSignDate + '</td>' +
+
+        '</tr>';
+
+        $('#employeesSignedIn').append(toAppend);
+
+    }
+    function PopulateList() {
+
+        $('#employeesSignedIn').empty();
+
+        var actionUrl = "@Url.Action("GetEmployeesSignedInToday", "Home")";
+
+        $.ajax({
+            cache: false,
+            url: actionUrl,
+            dataType: "json",
+            success: function (response) {
+                var items = response;
+
+                $.each(items, function (index, item) {
+                    
+                    var lastSignDate = ConvertDotNetDateToString(item.LastSigning);
+
+                    var toAppend = '<tr id="emp_row_' + item.EmployeeID + '">' +
+
+                                    '<td>' + item.FullName + '</td>' +
+
+                                    '<td>' + lastSignDate + '</td>' +
+
+                                    '</tr>';
+
+                    $('#employeesSignedIn').append(toAppend);
+
+                });
+            }
+        });
+
+    }
+
+</script>
+
+<div class="container">
+    <div class="jumbotron">
+        <h1>Acme Ltd Employee Sign In</h1>
+        <p>Review who is currently in or out</p>
+    </div>
+    <div class="bs-example">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Signed In On</th>
+                </tr>
+            </thead>
+            <tbody id="employeesSignedIn"></tbody>
+        </table>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-sm-12">
+            <footer>
+                <p>© Copyright 2014 Acme Ltd</p>
+            </footer>
+        </div>
+    </div>
+</div>
+
+

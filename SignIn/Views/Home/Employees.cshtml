@@ -1,0 +1,361 @@
+﻿@{
+    ViewBag.Title = "Employees";
+}
+
+<script src="~/Scripts/jquery.signalR-2.1.1.min.js"></script>
+<script src="/signalr/hubs"></script>
+
+<script type="text/javascript">
+
+    var selectedEmployeeID;
+    var command;
+    var validator;
+
+    $(function () {
+
+        jQuery.ajaxSettings.traditional = true;
+
+        validator = $('#thisForm').validate(
+             {
+                 rules: {
+                     username: {
+                         minlength: 2,
+                         required: true
+                     },
+                     fullname: {
+                         minlength: 2,
+                         required: true
+                     }
+                 }
+             });
+
+
+        PopulateList(); 
+
+        $.connection.hub.start().done(function () {
+            //alert('hub connected');
+        });
+
+        $('#update_modal').on('shown', function () {
+            //$('#confirm_delete').removeClass().addClass('hide');
+
+
+        });
+
+    });
+
+    function PopulateList() {
+
+        var actionUrl = "@Url.Action("GetAllEmployees", "Home")";
+
+        
+        $.ajax({
+            cache: false,
+            url: actionUrl,
+            dataType: "json",
+            success: function (response) {
+
+                var items = response;
+
+                $.each(items, function (index, item) {
+
+                    AddEmployeeToList(item);
+
+                });
+            }
+        });
+    }
+
+    function confirmDisable(employeeID) {
+        selectedEmployeeID = employeeID;
+
+        $('#confirm_disable').removeClass().addClass('show');
+    }
+
+    function UpdateEmployeeInList(emp) {
+        
+        var rowHtml = '<td><a href="#" onclick="editEmployee(' + emp.EmployeeID + ');"><span class="glyphicon glyphicon-pencil"></span></a></td>' +
+
+                '<td><a href="#" onclick="confirmDisable(' + emp.EmployeeID + ');"><span class="glyphicon glyphicon-remove"></span></a></td>' +
+
+                '<td>' + emp.EmployeeID + '</td>' +
+
+                '<td>' + emp.Username + '</td>' +
+
+                '<td>' + emp.FullName + '</td>' +
+
+                '<td>' + emp.IsActive + '</td>';
+
+        $("#employee" + emp.EmployeeID).html(rowHtml);
+    }
+
+    function AddEmployeeToList(emp) {
+
+        var toAppend = '<tr name="employee' + emp.EmployeeID + '" id="employee' + emp.EmployeeID + '">' +
+
+                '<td><a href="#" onclick="editEmployee(' + emp.EmployeeID + ');"><span class="glyphicon glyphicon-pencil"></span></a></td>' +
+
+                '<td><a href="#" onclick="confirmDisable(' + emp.EmployeeID + ');"><span class="glyphicon glyphicon-remove"></span></a></td>' +
+
+                '<td>' + emp.EmployeeID + '</td>' +
+
+                '<td>' + emp.Username + '</td>' +
+
+                '<td>' + emp.FullName + '</td>' +
+
+                '<td>' + emp.IsActive + '</td>' +
+
+                '</tr>';
+
+        $('#employeesList').append(toAppend);
+    }
+
+    function addEmployee() {
+        resetFormValidation();
+        clearFields();
+        $('#update_modal').modal('show');
+    }
+
+    function resetFormValidation() {
+
+        $("div.control-group").removeClass('error').removeClass('success');
+        validator.resetForm();
+    }
+
+    function saveEmployee() {
+
+        var isValid = $('#thisForm').valid();
+
+        if (isValid == false) {
+            return;
+        }
+
+        var employeeId = $('#employeeId').val();
+        var username = $('#username').val();
+        var fullName = $('#fullname').val();
+        var isActive = $('#isActive').is(":checked");
+        
+        //$("#loading-indicator").removeClass().addClass("show");
+
+        var actionURL = '@Url.Action("SaveEmployee", "Home")';
+        $.ajax({
+            type: "POST",
+            url: actionURL,
+            data: {
+                employeeId: employeeId,
+                username: username,
+                fullName: fullName,
+                isActive: isActive
+            },
+            statusCode: {
+                401: function () {
+                    postErrorMessage("Saving employees is not authorised for the current user");
+                }
+            },
+            success: function (r) {
+                if (employeeId == 0) {
+                    AddEmployeeToList(r);
+                    $.connection.realtimeHub.server.employeeAdded(r);
+                } else {
+                    UpdateEmployeeInList(r);
+                    $.connection.realtimeHub.server.employeeUpdated(r);
+                }
+                //if (r.Success) {
+                //    postFeedbackMessage("Employee '" + username + "' saved");
+                //    refreshGrid();
+                //}
+                //else {
+                //    postErrorMessage("Error saving employee," + r.Error);
+                //}
+
+            },
+            complete: function () {
+                $("#loading-indicator").removeClass().addClass("hide");
+                $('#update_modal').modal('hide');
+            },
+            error: function (req, status, error) {
+                postErrorMessage("Error saving employee, " + status + "," + error);
+            }
+        });
+
+        //e.preventDefault();
+    }
+
+    // extracts the corresponding row data and
+    // loads into modal text fields for editing
+    function editEmployee(employeeID) {
+        
+        resetFormValidation();
+
+        //$('#feedback_alert').hide();
+        //$('#error_alert').hide();
+        var selectedRow;
+
+        $("#employeesList tr").each(function () {
+
+            //to get the current row for this checkbox:
+            selectedRow = $(this);
+
+            // extract out  the span values in each table column
+            if (employeeID == ($(selectedRow).find("td").eq(2)).html()) {
+                return false;
+            }
+        });
+
+        var isActive = ($(selectedRow).find("td").eq(5).html().toUpperCase() == "TRUE");
+        
+        $("#employeeId").val(employeeID);
+        $("#username").val(($(selectedRow).find("td").eq(3)).html());
+        $("#fullname").val(($(selectedRow).find('td').eq(4)).html());
+        $("#isActive").prop("checked",isActive);
+
+        $('#update_modal').modal('show');
+
+    }
+
+    function clearFields() {
+        $('#employeeId').val('0');
+        $('#username').val('');
+        $('#fullname').val('');
+        $('#isActive').prop("checked", "true");
+    }
+
+    // disables selected users from the database
+    function disableEmployee() {
+
+        $('#confirm_disable').removeClass().addClass('hide');
+        //$('#feedback_alert').hide();
+        //$('#error_alert').hide();
+        
+        var postParams = {
+            employeeId: selectedEmployeeID
+        };
+
+        $.ajax({
+            type: "POST",
+            url: '@Url.Action("DisableEmployee", "Home")',
+            data: postParams,
+            traditional: true,
+            statusCode: {
+                401: function () {
+                    postErrorMessage("Disabling employees is not authorised for the current user");
+                }
+            },
+            success: function (response) {
+                if (response.Success) {
+                    UpdateEmployeeInList(response.Employee);
+                    $.connection.realtimeHub.server.employeeUpdated(response.Employee);
+                    postFeedbackMessage("Employee successfully disabled");
+                }
+                else
+                    postErrorMessage(response.ErrorMessage);
+            },
+            failure: function (msg) {
+                postErrorMessage(msg);
+            }
+        });
+    }
+
+    function postErrorMessage(message) {
+        $('#update_modal').modal('hide');
+        window.scrollTo(0, 0);
+        $('#error_message').text(message);
+        $('#error_alert').show();
+        window.setTimeout(function () { $("#error_alert").hide(); }, 6000);
+    }
+
+    function postFeedbackMessage(message) {
+        $('#update_modal').modal('hide');
+        window.scrollTo(0, 0);
+        $('#feedback_message').text(message);
+        $('#feedback_alert').show();
+        window.setTimeout(function () { $("#feedback_alert").hide(); }, 3000);
+    }
+
+
+</script>
+
+
+
+<div class="container">
+    <div class="jumbotron">
+        <h1>Acme Ltd Employee Sign In</h1>
+        <p>Employee Maintenance</p>
+    </div>
+    <div id="confirm_disable" class="hide">
+        <div>
+            <p>Are you sure you want to disable the selected employee?</p> <br />
+            <a id="disable-confirm-yes" onclick="disableEmployee()" href="#" class="btn btn-danger">Confirm</a>
+            <a id="disable-confirm-no" onclick="$('#confirm_disable').removeClass().addClass('hide');" href="#" class="btn btn-info">Cancel</a>
+        </div>
+        <br />
+    </div>
+    <a href="#" onclick="addEmployee();" class="btn btn-primary">Add Employee</a>
+    <div class="bs-example">
+        <table id="employeesTable" class="table table-striped">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th>Is Active</th>
+                </tr>
+            </thead>
+            <tbody id="employeesList"></tbody>
+        </table>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-sm-12">
+            <footer>
+                <p>© Copyright 2014 Acme Ltd</p>
+            </footer>
+        </div>
+    </div>
+</div>
+<div class="modal" id="update_modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                <h4 class="modal-title">Save Employee</h4>
+            </div>
+            <div class="modal-body">
+                <div class="span6">
+                    <fieldset>
+                        <input type="hidden" id="employeeId" value="0" />
+                        <form id="thisForm">
+                            <div class="control-group">
+                                <label class="span3">
+                                    Username:
+                                </label>
+                                <input class="span6" type="text" id="username" name="username" />
+                            </div>
+                            <div class="control-group">
+                                <label class="span3">
+                                    Full Name:
+                                </label>
+                                <input class="span6" type="text" id="fullname" name="fullname" />
+                            </div>
+                            <div class="control-group">
+                                <label class="span3">
+                                    Is Active:
+                                </label>
+                                <input class="span6" type="checkbox" id="isActive" name="isActive" />
+                            </div>
+                        </form>
+                    </fieldset>
+                    <br />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" data-dismiss="modal" class="btn">Close</a>
+                <a href="#" onclick="saveEmployee();" class="btn btn-primary">Save</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+
