@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace SignIn.Repositories
 {
+    /// <summary>
+    /// Interface of employee repository
+    /// </summary>
     public interface IEmployeeRepository
     {
         IList<EmployeeViewModel> GetAll();

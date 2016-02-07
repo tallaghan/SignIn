@@ -6,6 +6,9 @@ using System.Text;
 
 namespace SignIn.Repositories
 {
+    /// <summary>
+    /// interface of signings repository
+    /// </summary>
     public interface ISigningsRepository
     {
         IQueryable<Signing> GetAll();

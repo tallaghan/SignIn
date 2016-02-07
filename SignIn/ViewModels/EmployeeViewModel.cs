@@ -5,6 +5,10 @@ using System.Web;
 
 namespace SignIn.ViewModels
 {
+
+    /// <summary>
+    /// employee representation in views
+    /// </summary>
     public class EmployeeViewModel
     {
         public int EmployeeID { get; set; }

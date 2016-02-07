@@ -6,6 +6,9 @@ using SignIn.Services;
 
 namespace SignIn
 {
+    /// <summary>
+    /// configure what concrete classes should be instantiated
+    /// </summary>
     public static class UnityConfig
     {
         public static void RegisterComponents()

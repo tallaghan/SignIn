@@ -7,10 +7,18 @@ using System.Web;
 
 namespace SignIn.Repositories
 {
+    /// <summary>
+    /// Employee Repository
+    /// </summary>
     public class EmployeeRepository : IEmployeeRepository
     {
         private SignInEntities db = new SignInEntities();
 
+        /// <summary>
+        /// Get employee view model by id
+        /// </summary>
+        /// <param name="employeeID">id of employee to get</param>
+        /// <returns>view model representing employee</returns>
         public EmployeeViewModel GetById(int employeeID)
         {
             Employee emp =  db.Employees.Where(x => x.ID == employeeID).FirstOrDefault();
@@ -18,6 +26,11 @@ namespace SignIn.Repositories
             return Map(emp);             
         }
 
+        /// <summary>
+        /// Get employee view model by name
+        /// </summary>
+        /// <param name="employeeName">name of employee to get</param>
+        /// <returns>view model representing employee</returns>
         public EmployeeViewModel GetByName(string employeeName)
         {
             int employeeID = db.Employees.Where(x => x.Username.ToLower() == employeeName.ToLower()).FirstOrDefault().ID;
@@ -25,6 +38,11 @@ namespace SignIn.Repositories
             return GetById(employeeID);
         }
 
+        /// <summary>
+        /// did this sign in occur today
+        /// </summary>
+        /// <param name="thisSigning">signing object</param>
+        /// <returns>true/false</returns>
         private bool IsSigningToday(Signing thisSigning)
         {
             string dateFormat = "yyyy-MM-dd";
@@ -33,6 +51,11 @@ namespace SignIn.Repositories
 
         }
 
+        /// <summary>
+        /// Map a employee entity to a view model
+        /// </summary>
+        /// <param name="emp">employee entity</param>
+        /// <returns>employee view model</returns>
         private EmployeeViewModel Map(Employee emp)
         {
             Signing lastSign = emp.Signings.OrderByDescending(x => x.SignedOn).FirstOrDefault();
@@ -71,6 +94,10 @@ namespace SignIn.Repositories
             return retValue; 
         }
 
+        /// <summary>
+        /// get all employees
+        /// </summary>
+        /// <returns>list of employee view models</returns>
         public IList<EmployeeViewModel> GetAll()
         {
             IList<EmployeeViewModel> retValue = new List<EmployeeViewModel>();
@@ -82,6 +109,12 @@ namespace SignIn.Repositories
             return retValue;
 
         }
+
+        /// <summary>
+        /// Disable an employee
+        /// </summary>
+        /// <param name="employeeId">employee id</param>
+        /// <returns>employee that was disabled</returns>
         public EmployeeViewModel DisableEmployee(int employeeId)
         {
             Employee emp = db.Employees.Where(x => x.ID == employeeId).FirstOrDefault();
@@ -92,6 +125,12 @@ namespace SignIn.Repositories
 
             return Map(emp);
         }
+
+        /// <summary>
+        /// save employee to db
+        /// </summary>
+        /// <param name="employee">view mode of employee</param>
+        /// <returns>saved employee</returns>
         public EmployeeViewModel SaveEmployee(EmployeeViewModel employee)
         {
             Employee emp;
